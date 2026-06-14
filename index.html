@@ -265,6 +265,7 @@
                 </div>
                 <div class="nodes-badge" id="ui-nodes" style="margin-bottom: 15px;">0 / 40</div>
                 <button class="btn-action" id="btn-initiate-backburn" style="margin-top: 0; width: 100%; font-size: 14px; padding: 10px;">INITIATE BACKBURN</button>
+                <button class="btn-action" id="btn-airdrop" style="margin-top: 5px; width: 100%; font-size: 14px; padding: 10px; background: #2196F3; color: #fff;">WATER AIRDROP (3)</button>
             </div>
         </aside>
     </div>
@@ -282,24 +283,27 @@
                 this.cellWidth = 0;
                 this.cellHeight = 0;
                 
-                this.grid = []; // 2D array of states: 0=Forest, 1=Fire, 2=Charcoal, 3=Asset
+                this.grid = []; // 2D array of states: 0=Forest, 1=Fire, 2=Charcoal, 3=Asset, 4=Wet
                 this.rects = []; // Visual rectangles
                 
                 this.nodes = []; // Array of {r, c, x, y, visual}
                 this.maxNodes = 40;
                 
-                this.timeLeft = 90.0;
-                this.tickTimer = 2.0;
+                this.timeLeft = 45.0;
+                this.tickTimer = 1.0;
                 
                 this.windDir = 'North';
                 this.nextWindDir = '';
                 
                 this.isPlaying = false;
                 
-                // Track wind shifts (60s and 30s)
-                this.shift60Done = false;
+                // Track wind shifts (30s and 15s)
                 this.shift30Done = false;
+                this.shift15Done = false;
                 this.nextWindScheduled = false;
+
+                this.airdrops = 3;
+                this.airdropMode = false;
             }
 
             create() {
@@ -322,9 +326,9 @@
                 
                 this.nodeLayer = this.add.container(0, 0);
 
-                this.input.on('pointerdown', this.handlePointer, this);
-                this.input.on('pointermove', (pointer) => {
-                    if (pointer.isDown) this.handlePointer(pointer);
+                this.input.on('pointerdown', (p) => this.handlePointer(p, false), this);
+                this.input.on('pointermove', (p) => {
+                    if (p.isDown) this.handlePointer(p, true);
                 }, this);
 
                 // Initial dashboard sync
@@ -343,6 +347,13 @@
                     this.nodes = [];
                     document.getElementById('ui-nodes').innerText = `0 / ${this.maxNodes}`;
                     this.updateGridVisuals();
+                };
+
+                document.getElementById('btn-airdrop').onclick = () => {
+                    if (!this.isPlaying || this.airdrops <= 0) return;
+                    this.airdropMode = !this.airdropMode;
+                    document.getElementById('btn-airdrop').innerText = this.airdropMode ? `CANCEL AIRDROP` : `WATER AIRDROP (${this.airdrops})`;
+                    document.getElementById('btn-airdrop').style.background = this.airdropMode ? '#ff5252' : '#2196F3';
                 };
 
                 // Bind Start
@@ -388,6 +399,7 @@
                 if (state === 1) return 0xD84315; // Fire
                 if (state === 2) return 0x37474F; // Controlled
                 if (state === 3) return 0xFBC02D; // Asset
+                if (state === 4) return 0x1565C0; // Wet Forest
                 return 0x000000;
             }
 
@@ -399,13 +411,35 @@
                 }
             }
 
-            handlePointer(pointer) {
+            handlePointer(pointer, isMove) {
                 if (!this.isPlaying) return;
 
                 const c = Math.floor((pointer.x - this.offsetX) / this.cellWidth);
                 const r = Math.floor((pointer.y - this.offsetY) / this.cellHeight);
                 
                 if (c < 0 || c >= this.COLS || r < 0 || r >= this.ROWS) return;
+
+                if (this.airdropMode) {
+                    if (isMove) return; // Only airdrop on tap
+                    this.airdropMode = false;
+                    this.airdrops--;
+                    document.getElementById('btn-airdrop').innerText = `WATER AIRDROP (${this.airdrops})`;
+                    document.getElementById('btn-airdrop').style.background = '#2196F3';
+                    if (this.airdrops <= 0) document.getElementById('btn-airdrop').style.opacity = '0.5';
+
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            let nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < this.ROWS && nc >= 0 && nc < this.COLS) {
+                                let st = this.grid[nr][nc];
+                                if (st === 1) this.grid[nr][nc] = 2; // Extinguish
+                                else if (st === 0) this.grid[nr][nc] = 4; // Wet
+                            }
+                        }
+                    }
+                    this.updateGridVisuals();
+                    return;
+                }
 
                 const state = this.grid[r][c];
                 
@@ -443,23 +477,23 @@
                 document.getElementById('ui-timer').innerText = this.timeLeft.toFixed(1);
 
                 // Wind Shift Events schedule
-                if (this.timeLeft <= 65 && !this.nextWindScheduled && !this.shift60Done) {
-                    this.scheduleWindShift(60);
-                }
                 if (this.timeLeft <= 35 && !this.nextWindScheduled && !this.shift30Done) {
                     this.scheduleWindShift(30);
+                }
+                if (this.timeLeft <= 20 && !this.nextWindScheduled && !this.shift15Done) {
+                    this.scheduleWindShift(15);
                 }
 
                 // Execute Wind Shift
                 if (this.nextWindScheduled) {
-                    if ((this.shift60Done === false && this.timeLeft <= 60) || 
-                        (this.shift30Done === false && this.timeLeft <= 30)) {
+                    if ((this.shift30Done === false && this.timeLeft <= 30) || 
+                        (this.shift15Done === false && this.timeLeft <= 15)) {
                         
                         this.windDir = this.nextWindDir;
                         this.nextWindScheduled = false;
                         
-                        if (this.timeLeft <= 60 && this.timeLeft > 30) this.shift60Done = true;
-                        if (this.timeLeft <= 30) this.shift30Done = true;
+                        if (this.timeLeft <= 30 && this.timeLeft > 15) this.shift30Done = true;
+                        if (this.timeLeft <= 15) this.shift15Done = true;
 
                         this.updateCompassVisual();
                         this.setTicker(`WIND SHIFTED TO ${this.windDir.toUpperCase()}`, false);
@@ -469,7 +503,7 @@
                 // Fire Spread Tick
                 this.tickTimer -= dt;
                 if (this.tickTimer <= 0) {
-                    this.tickTimer = 2.0;
+                    this.tickTimer = 1.0;
                     this.processFireSpread();
                     this.checkWinLoss();
                 }
@@ -485,8 +519,8 @@
 
             showScanTicker() {
                 let timeToShift = 0;
-                if (!this.shift60Done && this.timeLeft > 60) timeToShift = Math.max(0, this.timeLeft - 60);
-                else if (!this.shift30Done && this.timeLeft > 30) timeToShift = Math.max(0, this.timeLeft - 30);
+                if (!this.shift30Done && this.timeLeft > 30) timeToShift = Math.max(0, this.timeLeft - 30);
+                else if (!this.shift15Done && this.timeLeft > 15) timeToShift = Math.max(0, this.timeLeft - 15);
                 
                 this.setTicker(`WARNING: Wind shifting ${this.nextWindDir.toUpperCase()} in ${timeToShift.toFixed(0)} seconds`, true);
             }
@@ -550,6 +584,16 @@
                                                 this.nodes[nodeIndex].visuals.forEach(v => v.destroy());
                                                 this.nodes.splice(nodeIndex, 1);
                                                 document.getElementById('ui-nodes').innerText = `${this.nodes.length} / ${this.maxNodes}`;
+                                            }
+                                        }
+
+                                        // Spot fires (Embers)
+                                        if (prob === 1.0 && Math.random() < 0.15) {
+                                            let dist = Math.floor(Math.random() * 3) + 2; // 2 to 4 tiles ahead
+                                            let er = r + n.dr * dist;
+                                            let ec = c + n.dc * dist;
+                                            if (er >= 0 && er < this.ROWS && ec >= 0 && ec < this.COLS) {
+                                                if (newGrid[er][ec] === 0) newGrid[er][ec] = 1;
                                             }
                                         }
                                     }
