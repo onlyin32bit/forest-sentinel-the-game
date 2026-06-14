@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Forest Sentinel: Firebreak Command</title>
+    
+    <!-- Google Fonts: Orbitron & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Phaser 3 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #070b13;
+            --panel-bg: rgba(13, 20, 35, 0.75);
+            --panel-border: rgba(0, 229, 255, 0.2);
+            --glow-cyan: 0 0 15px rgba(0, 229, 255, 0.4);
+            --glow-red: 0 0 15px rgba(216, 67, 21, 0.6);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --cyan: #00E5FF;
+            --green: #2E7D32;
+            --orange: #D84315;
+            --grey: #37474F;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+        }
+
+        /* Scanline background effect */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            );
+            background-size: 100% 4px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Main Game Wrapper - Forces Landscape 16:9 aspect ratio */
+        .game-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: radial-gradient(circle at center, #0f1c30 0%, #05080e 100%);
+        }
+
+        /* Top HUD Dashboard */
+        .hud-header {
+            width: 100%;
+            max-width: 1280px;
+            height: 70px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 10px 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: var(--glow-cyan);
+            z-index: 5;
+        }
+
+        .hud-title-container h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--cyan);
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
+
+        .hud-title-container p {
+            font-size: 9px;
+            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .hud-timer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hud-timer-label {
+            font-size: 9px;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .hud-timer-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        .hud-stats-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .hud-stat-box {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .hud-stat-label {
+            font-size: 9px;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .hud-stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .hud-stat-value.danger {
+            color: #ff5252;
+            text-shadow: 0 0 8px rgba(255, 82, 82, 0.4);
+        }
+
+        /* Main Board Container (Compass on left, Canvas in center, Log on right) */
+        .main-game-area {
+            flex: 1;
+            width: 100%;
+            max-width: 1280px;
+            display: flex;
+            gap: 15px;
+            margin: 12px 0;
+            min-height: 0; /* allows flex children to shrink */
+        }
+
+        /* Sidebar Panels */
+        .sidebar-panel {
+            width: 200px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            min-height: 0;
+        }
+
+        .sidebar-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--cyan);
+            border-bottom: 1px solid var(--panel-border);
+            width: 100%;
+            text-align: center;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+
+        /* Compass Visualizer */
+        .compass-container {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            border: 2px dashed var(--panel-border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .compass-cardinal {
+            position: absolute;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .compass-n { top: 4px; }
+        .compass-e { right: 6px; }
+        .compass-s { bottom: 4px; }
+        .compass-w { left: 6px; }
+
+        .compass-arrow {
+            width: 8px;
+            height: 80px;
+            position: relative;
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .compass-arrow::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-bottom: 40px solid var(--orange);
+        }
+
+        .compass-arrow::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 40px solid var(--text-secondary);
+        }
+
+        .wind-info-box {
+            text-align: center;
+            width: 100%;
+        }
+
+        .wind-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--orange);
+            text-shadow: 0 0 8px rgba(216, 67, 21, 0.4);
+            margin-bottom: 4px;
+        }
+
+        .wind-sub {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .wind-next-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            padding: 6px;
+            width: 100%;
+            border: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        .wind-next-label {
+            font-size: 8px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .wind-next-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 2px;
+        }
+
+        .wind-next-value.scanning {
+            color: var(--cyan);
+            animation: pulse-cyan 1.5s infinite;
+        }
+
+        /* Right Sidebar: Operations Log */
+        .log-container {
+            flex: 1;
+            width: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 9px;
+            font-family: monospace;
+            padding-right: 2px;
+        }
+
+        .log-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .log-container::-webkit-scrollbar-thumb {
+            background: var(--panel-border);
+            border-radius: 2px;
+        }
+
+        .log-entry {
+            padding: 5px 8px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 2px solid var(--text-secondary);
+            line-height: 1.3;
+        }
+
+        .log-entry.info { border-left-color: var(--cyan); }
+        .log-entry.warning { border-left-color: var(--orange); color: #ffab40; }
+        .log-entry.danger { border-left-color: #ff5252; color: #ff5252; }
+        .log-entry.success { border-left-color: #4caf50; color: #81c784; }
+
+        /* Center Phaser Canvas Container */
+        .canvas-container {
+            flex: 1;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        #phaser-game {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Bottom Controls Action Bar */
+        .control-bar {
+            width: 100%;
+            max-width: 1280px;
+            height: 80px;
+            display: flex;
+            gap: 15px;
+            z-index: 5;
+        }
+
+        .tool-btn {
+            flex: 1;
+            height: 100%;
+            background: rgba(13, 20, 35, 0.6);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .tool-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            transition: background 0.2s;
+        }
+
+        /* Radar Button Styling */
+        .tool-btn#tool-radar::before { background: var(--cyan); }
+        .tool-btn#tool-radar.active {
+            background: rgba(0, 229, 255, 0.12);
+            border-color: var(--cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2) inset, 0 0 10px rgba(0, 229, 255, 0.1);
+        }
+        
+        /* RF Node Button Styling */
+        .tool-btn#tool-rf::before { background: #00E676; }
+        .tool-btn#tool-rf.active {
+            background: rgba(0, 230, 118, 0.12);
+            border-color: #00E676;
+            box-shadow: 0 0 15px rgba(0, 230, 118, 0.2) inset, 0 0 10px rgba(0, 230, 118, 0.1);
+        }
+
+        /* Backburn Button Styling */
+        .tool-btn#tool-backburn::before { background: var(--orange); }
+        .tool-btn#tool-backburn.active {
+            background: rgba(216, 67, 21, 0.15);
+            border-color: var(--orange);
+            box-shadow: 0 0 15px rgba(216, 67, 21, 0.25) inset, 0 0 10px rgba(216, 67, 21, 0.1);
+        }
+
+        .tool-btn:hover {
+            transform: translateY(-2px);
+            background: rgba(20, 32, 55, 0.8);
+        }
+
+        .tool-btn:active {
+            transform: translateY(1px);
+        }
+
+        .tool-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .tool-icon svg {
+            width: 24px;
+            height: 24px;
+            transition: transform 0.3s;
+        }
+
+        .tool-btn.active .tool-icon svg {
+            transform: scale(1.1);
+        }
+
+        .tool-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .tool-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .tool-btn#tool-radar .tool-name { color: var(--cyan); }
+        .tool-btn#tool-rf .tool-name { color: #00E676; }
+        .tool-btn#tool-backburn .tool-name { color: var(--orange); }
+
+        .tool-desc {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .tool-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #00E676;
+            color: #000000;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            box-shadow: 0 0 8px rgba(0, 230, 118, 0.5);
+        }
+
+        .tool-shortcut {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.2);
+            font-family: monospace;
+            align-self: flex-end;
+            margin-bottom: 10px;
+            margin-right: 5px;
+        }
+
+        /* Sound Button styling on header */
+        .btn-audio {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--panel-border);
+            color: var(--text-primary);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-audio:hover {
+            background: var(--cyan);
+            color: #000;
+            box-shadow: var(--glow-cyan);
+            border-color: var(--cyan);
+        }
+
+        /* Game Screens Overlay (Start / GameOver / Win) */
+        .screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 8, 15, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+            opacity: 1;
+            transition: opacity 0.4s ease;
+        }
+
+        .screen-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .modal-card {
+            width: 540px;
+            background: rgba(13, 20, 35, 0.9);
+            border: 2px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: var(--glow-cyan);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .screen-overlay:not(.hidden) .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-card.loss {
+            border-color: rgba(216, 67, 21, 0.5);
+            box-shadow: var(--glow-red);
+        }
+
+        .modal-card.win {
+            border-color: rgba(76, 175, 80, 0.5);
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .modal-badge {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--cyan);
+            background: rgba(0, 229, 255, 0.1);
+            padding: 4px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--panel-border);
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .modal-card.loss .modal-badge {
+            color: #ff5252;
+            background: rgba(255, 82, 82, 0.1);
+            border-color: rgba(255, 82, 82, 0.2);
+        }
+
+        .modal-card.win .modal-badge {
+            color: #4caf50;
+            background: rgba(76, 175, 80, 0.1);
+            border-color: rgba(76, 175, 80, 0.2);
+        }
+
+        .modal-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .modal-card.loss .modal-title {
+            color: #ff5252;
+            text-shadow: 0 0 10px rgba(255, 82, 82, 0.4);
+        }
+
+        .modal-card.win .modal-title {
+            color: #4caf50;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
+        }
+
+        .modal-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        /* Briefing Guide Details */
+        .briefing-guide {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 25px;
+            text-align: left;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .guide-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .guide-bullet {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .guide-bullet.blue { background: rgba(0, 229, 255, 0.15); color: var(--cyan); border: 1px solid rgba(0, 229, 255, 0.3); }
+        .guide-bullet.green { background: rgba(0, 230, 118, 0.15); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.3); }
+        .guide-bullet.orange { background: rgba(216, 67, 21, 0.15); color: var(--orange); border: 1px solid rgba(216, 67, 21, 0.3); }
+
+        .guide-text h4 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .guide-text p {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            line-height: 1.4;
+        }
+
+        /* Statistics list for endgame */
+        .stats-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .stat-card-label {
+            font-size: 8px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-top: 4px;
+        }
+
+        .btn-action {
+            background: var(--cyan);
+            color: #05080e;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 30px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: var(--glow-cyan);
+            text-transform: uppercase;
+        }
+
+        .btn-action:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.7);
+        }
+
+        .btn-action:active {
+            transform: scale(0.95);
+        }
+
+        .modal-card.loss .btn-action {
+            background: #ff5252;
+            color: #000;
+            box-shadow: 0 0 15px rgba(255, 82, 82, 0.5);
+        }
+        .modal-card.loss .btn-action:hover {
+            box-shadow: 0 0 25px rgba(255, 82, 82, 0.8);
+        }
+
+        .modal-card.win .btn-action {
+            background: #4caf50;
+            color: #000;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+        }
+        .modal-card.win .btn-action:hover {
+            box-shadow: 0 0 25px rgba(76, 175, 80, 0.8);
+        }
+
+        /* Next spread progress bar on canvas bottom overlay */
+        .spread-bar-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .spread-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--orange);
+            box-shadow: 0 0 8px var(--orange);
+            transition: width 0.1s linear;
+        }
+
+        @keyframes pulse-cyan {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+
+    <div class="game-wrapper">
+        <!-- TOP HUD -->
+        <header class="hud-header">
+            <div class="hud-title-container">
+                <h1>FOREST SENTINEL</h1>
+                <p>Wildfire Operations Console v3.6</p>
+            </div>
+            
+            <div class="hud-timer-container">
+                <span class="hud-timer-label">Time to Containment</span>
+                <span class="hud-timer-value" id="hud-timer">90.0s</span>
+            </div>
+
+            <div class="hud-stats-group">
+                <div class="hud-stat-box">
+                    <span class="hud-stat-label">Forest Protected</span>
+                    <span class="hud-stat-value" id="hud-saved">100%</span>
+                </div>
+                <div class="hud-stat-box">
+                    <span class="hud-stat-label">Fires Burning</span>
+                    <span class="hud-stat-value danger" id="hud-fires">0</span>
+                </div>
+                <div class="hud-stat-box" style="margin-left: 10px;">
+                    <button class="btn-audio" id="btn-audio" title="Toggle Sound">
+                        <!-- Volume High Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="audio-icon"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <main class="main-game-area">
+            <!-- LEFT SIDEBAR: WIND RADAR -->
+            <section class="sidebar-panel">
+                <h3 class="sidebar-title">WIND TELEMETRY</h3>
+                
+                <div class="compass-container">
+                    <span class="compass-cardinal compass-n">N</span>
+                    <span class="compass-cardinal compass-e">E</span>
+                    <span class="compass-cardinal compass-s">S</span>
+                    <span class="compass-cardinal compass-w">W</span>
+                    <div class="compass-arrow" id="compass-arrow"></div>
+                </div>
+
+                <div class="wind-info-box">
+                    <div class="wind-value" id="wind-direction">EAST</div>
+                    <div class="wind-sub">Current Blow Direction</div>
+                    
+                    <div class="wind-next-box">
+                        <div class="wind-next-label">Wind Shift In</div>
+                        <div class="wind-next-value" id="wind-shift-timer">12.0s</div>
+                        <div class="wind-next-label" style="margin-top: 6px;">Next Wind Shift</div>
+                        <div class="wind-next-value scanning" id="wind-next-dir">SCAN REQUIRED</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CENTER GAME CANVAS -->
+            <section class="canvas-container">
+                <div id="phaser-game"></div>
+                <div class="spread-bar-container">
+                    <div class="spread-bar-fill" id="spread-progress"></div>
+                </div>
+            </section>
+
+            <!-- RIGHT SIDEBAR: OPERATIONAL LOGS -->
+            <section class="sidebar-panel">
+                <h3 class="sidebar-title">COMMS & LOGS</h3>
+                <div class="log-container" id="log-container">
+                    <div class="log-entry info">System loaded. Ready for operational dispatch.</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- BOTTOM CONTROLS -->
+        <footer class="control-bar">
+            <!-- RADAR SCAN BUTTON -->
+            <button class="tool-btn active" id="tool-radar" data-tool="radar">
+                <div class="tool-icon">
+                    <!-- Radar SVG Icon -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M2 12h20"></path></svg>
+                </div>
+                <div class="tool-info">
+                    <span class="tool-name">RADAR SCAN</span>
+                    <span class="tool-desc">Data Analyst: Reveals next wind direction.</span>
+                </div>
+                <span class="tool-shortcut">1</span>
+            </button>
+
+            <!-- DEPLOY RF BUTTON -->
+            <button class="tool-btn" id="tool-rf" data-tool="deploy">
+                <div class="tool-icon">
+                    <!-- Tower SVG Icon -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><path d="m9.88 12.5 4.24 0"></path><path d="m7.05 18.25 9.9 0"></path><path d="M12 7v14"></path><path d="M5 21a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"></path></svg>
+                </div>
+                <div class="tool-info">
+                    <span class="tool-name">DEPLOY RF</span>
+                    <span class="tool-desc">RF Engineer: Signal coverage (R=3 tiles).</span>
+                </div>
+                <span class="tool-badge" id="rf-badge">3 / 5</span>
+                <span class="tool-shortcut">2</span>
+            </button>
+
+            <!-- BACKBURN BUTTON -->
+            <button class="tool-btn" id="tool-backburn" data-tool="backburn">
+                <div class="tool-icon">
+                    <!-- Flame/Shield SVG Icon -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                </div>
+                <div class="tool-info">
+                    <span class="tool-name">BACKBURN</span>
+                    <span class="tool-desc">Fire Commander: Burn green tiles inside RF radius.</span>
+                </div>
+                <span class="tool-shortcut">3</span>
+            </button>
+        </footer>
+    </div>
+
+    <!-- START BRIEFING OVERLAY -->
+    <div class="screen-overlay" id="screen-start">
+        <div class="modal-card">
+            <span class="modal-badge">Operational Briefing</span>
+            <h2 class="modal-title">MISSION: SECURE FOREST</h2>
+            <p class="modal-desc">
+                A massive wildfire threat is moving Eastward toward the Community Safe Zone (represented by the glowing shield wall on the far-right column). Implement containment systems before the fire breaches defenses.
+            </p>
+            
+            <div class="briefing-guide">
+                <div class="guide-item">
+                    <div class="guide-bullet blue">1</div>
+                    <div class="guide-text">
+                        <h4>RADAR SCAN (Key 1)</h4>
+                        <p>Deploy a localized pulse on the grid to reveal the next critical wind direction shift. Plan your defense based on this data.</p>
+                    </div>
+                </div>
+                <div class="guide-item">
+                    <div class="guide-bullet green">2</div>
+                    <div class="guide-text">
+                        <h4>DEPLOY RF NODE (Key 2)</h4>
+                        <p>Construct network towers on forest tiles. Each node projects a permanent signal circle (3-tile radius). Placing nodes requires charge points.</p>
+                    </div>
+                </div>
+                <div class="guide-item">
+                    <div class="guide-bullet orange">3</div>
+                    <div class="guide-text">
+                        <h4>BACKBURN SHIELD (Key 3)</h4>
+                        <p>Select green forest tiles covered by an RF Node signal to conduct a controlled burn, creating Charcoal grey firebreaks. Fire cannot cross these zones.</p>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-action" id="btn-start">INITIALIZE CONSOLE</button>
+        </div>
+    </div>
+
+    <!-- GAME OVER / LOSS SCREEN -->
+    <div class="screen-overlay hidden" id="screen-defeat">
+        <div class="modal-card loss">
+            <span class="modal-badge">Critical Alert</span>
+            <h2 class="modal-title">DEFENSE BREACHED</h2>
+            <p class="modal-desc">
+                The wildfire has breached the containment perimeter and reached the Target Safe Zone. Operations terminated.
+            </p>
+            
+            <div class="stats-list">
+                <div class="stat-card">
+                    <div class="stat-card-label">Time Survived</div>
+                    <div class="stat-card-value" id="stat-loss-time">45.0s</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-label">Forest Destroyed</div>
+                    <div class="stat-card-value" id="stat-loss-destroyed">42%</div>
+                </div>
+            </div>
+
+            <button class="btn-action" id="btn-restart-loss">RE-ENGAGE SYSTEM</button>
+        </div>
+    </div>
+
+    <!-- VICTORY SCREEN -->
+    <div class="screen-overlay hidden" id="screen-victory">
+        <div class="modal-card win">
+            <span class="modal-badge">Mission Cleared</span>
+            <h2 class="modal-title">WILDFIRE CONTAINED</h2>
+            <p class="modal-desc">
+                Successful containment achieved! You successfully protected the Community Safe Zone until containment reinforcements arrived.
+            </p>
+            
+            <div class="stats-list">
+                <div class="stat-card">
+                    <div class="stat-card-label">Forest Protected</div>
+                    <div class="stat-card-value" id="stat-win-saved">85%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-label">Nodes Operational</div>
+                    <div class="stat-card-value" id="stat-win-nodes">4</div>
+                </div>
+            </div>
+
+            <button class="btn-action" id="btn-restart-win">DEPLOY NEXT MISSION</button>
+        </div>
+    </div>
+
+    <!-- GAME SCRIPT -->
+    <script>
+        // PROCEDURAL AUDIO SYNTHESIZER
+        class AudioManager {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggleMute() {
+                this.muted = !this.muted;
+                const icon = document.getElementById('audio-icon');
+                if (this.muted) {
+                    icon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>`;
+                    document.getElementById('btn-audio').style.borderColor = 'rgba(216, 67, 21, 0.4)';
+                } else {
+                    icon.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>`;
+                    document.getElementById('btn-audio').style.borderColor = 'var(--panel-border)';
+                    this.init();
+                }
+                return this.muted;
+            }
+
+            playPing() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(220, this.ctx.currentTime + 0.8);
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.8);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.8);
+            }
+
+            playDeploy() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1000, this.ctx.currentTime + 0.12);
+                osc.frequency.exponentialRampToValueAtTime(500, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playBackburn() {
+                if (this.muted) return;
+                this.init();
+                const bufferSize = this.ctx.sampleRate * 0.35;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.35);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+
+            playSpread() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                // Crackle generator: multiple small clicks
+                for (let i = 0; i < 3; i++) {
+                    const delay = i * 0.06 + Math.random() * 0.02;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(140 + Math.random() * 100, now + delay);
+                    osc.frequency.setValueAtTime(20, now + delay + 0.04);
+                    gain.gain.setValueAtTime(0.05, now + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.04);
+                    
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(800, now + delay);
+                    
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + delay);
+                    osc.stop(now + delay + 0.04);
+                }
+            }
+
+            playError() {
+                if (this.muted) return;
+                this.init();
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc1.type = 'sawtooth';
+                osc2.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(110, this.ctx.currentTime);
+                osc2.frequency.setValueAtTime(113, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc1.start();
+                osc2.start();
+                osc1.stop(this.ctx.currentTime + 0.3);
+                osc2.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playWin() {
+                if (this.muted) return;
+                this.init();
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // C major arpeggio
+                const now = this.ctx.currentTime;
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.05, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.5);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.5);
+                });
+            }
+
+            playLoss() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.linearRampToValueAtTime(70, now + 0.75);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(350, now);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.75);
+            }
+        }
+
+        const audio = new AudioManager();
+
+        // PHASER GAME CODE
+        class GameScene extends Phaser.Scene {
+            constructor() {
+                super('GameScene');
+            }
+
+            init() {
+                // Config values
+                this.COLS = 15;
+                this.ROWS = 10;
+                this.cellWidth = 0;
+                this.cellHeight = 0;
+                
+                // Game States
+                this.gridMatrix = []; // 15x10 tile matrix
+                this.rfNodes = []; // List of placed RF Nodes
+                this.cellObjects = []; // 2D array of Phaser graphics/contain objects
+                
+                this.activeTool = 'radar'; // radar, deploy, backburn
+                this.rfCharges = 3;
+                this.maxRFCharges = 5;
+                
+                // Timers
+                this.gameTimeLeft = 90.0;
+                this.fireSpreadTimer = 2.5;
+                this.windShiftTimer = 12.0;
+                this.rfRechargeTimer = 15.0;
+                
+                this.currentWindDirection = 'East';
+                this.nextWindDirection = 'South';
+                this.nextWindScanned = false;
+                
+                this.isPlaying = false;
+                this.radarCooldown = 0;
+            }
+
+            preload() {
+                // Procedurally create standard textures to run without external assets
+                let circle = this.make.graphics({ x: 0, y: 0, add: false });
+                circle.fillStyle(0xffffff, 1);
+                circle.fillCircle(8, 8, 8);
+                circle.generateTexture('particle', 16, 16);
+
+                let ring = this.make.graphics({ x: 0, y: 0, add: false });
+                ring.lineStyle(2, 0xffffff, 1);
+                ring.strokeCircle(32, 32, 30);
+                ring.generateTexture('ring', 64, 64);
+                
+                let antenna = this.make.graphics({ x: 0, y: 0, add: false });
+                // Base
+                antenna.fillStyle(0x37474F, 1);
+                antenna.fillTriangle(16, 48, 32, 8, 48, 48);
+                antenna.lineStyle(3, 0x00E5FF, 1);
+                antenna.strokeTriangle(16, 48, 32, 8, 48, 48);
+                // Grid details
+                antenna.lineStyle(2, 0x00E5FF, 1);
+                antenna.lineBetween(22, 35, 42, 35);
+                antenna.lineBetween(26, 22, 38, 22);
+                // Beacon led
+                antenna.fillStyle(0x00E5FF, 1);
+                antenna.fillCircle(32, 8, 4);
+                antenna.generateTexture('antenna', 64, 64);
+            }
+
+            create() {
+                // Capture dimensions of screen
+                const width = this.cameras.main.width;
+                const height = this.cameras.main.height;
+                
+                // Grid cell size calculation
+                this.cellWidth = width / this.COLS;
+                this.cellHeight = height / this.ROWS;
+                
+                // Particle Managers
+                this.fireParticles = this.add.particles(0, 0, 'particle');
+                this.smokeParticles = this.add.particles(0, 0, 'particle');
+                
+                // Graphics for drawing ranges
+                this.rfRangeGraphics = this.add.graphics();
+                this.uiInteractiveOverlay = this.add.graphics();
+                
+                // Build the Grid State & Visuals
+                this.buildGrid();
+
+                // Setup Inputs
+                this.input.on('pointerdown', this.handlePointerDown, this);
+                this.input.on('pointermove', this.handlePointerMove, this);
+
+                // Start Ambient pulses
+                this.time.addEvent({
+                    delay: 2000,
+                    callback: this.triggerRFPulses,
+                    callbackScope: this,
+                    loop: true
+                });
+                
+                // Operational setup
+                this.updateWindCompass();
+                this.addLog("Satellite telemetry online. Wildfire detected in Western perimeter.", "warning");
+                this.addLog("Mission Objective: Establish firebreaks to defend Community Safe Zone.", "info");
+                
+                // Initialize default tool selection
+                this.setTool('radar');
+            }
+
+            buildGrid() {
+                this.gridMatrix = [];
+                this.cellObjects = [];
+
+                for (let r = 0; r < this.ROWS; r++) {
+                    const matrixRow = [];
+                    const objectsRow = [];
+                    
+                    for (let c = 0; c < this.COLS; c++) {
+                        // 0: Green Forest, 1: Fire, 2: Backburned
+                        let state = 0;
+                        
+                        // Seed starting fires on the leftmost columns randomly
+                        if (c === 0 && (r === 2 || r === 7)) {
+                            state = 1;
+                        }
+                        
+                        matrixRow.push(state);
+                        
+                        // Create visual container
+                        const x = c * this.cellWidth;
+                        const y = r * this.cellHeight;
+                        
+                        const bg = this.add.graphics();
+                        const cellContainer = this.add.container(x, y, [bg]);
+                        
+                        const cell = {
+                            r: r,
+                            c: c,
+                            x: x,
+                            y: y,
+                            state: state,
+                            bg: bg,
+                            container: cellContainer,
+                            emitter: null,
+                            smokeEmitter: null,
+                            nodeSprite: null
+                        };
+                        
+                        this.drawCell(cell);
+                        
+                        // If seeded with fire, start emitter immediately
+                        if (state === 1) {
+                            this.igniteCellEmitter(cell);
+                        }
+                        
+                        objectsRow.push(cell);
+                    }
+                    this.gridMatrix.push(matrixRow);
+                    this.cellObjects.push(objectsRow);
+                }
+                
+                // Redraw RF coverage circles
+                this.redrawRFCircles();
+            }
+
+            drawCell(cell, hovered = false) {
+                const bg = cell.bg;
+                bg.clear();
+                
+                let color = 0x2E7D32; // State 0: Green Forest
+                let borderColor = 0x1B5E20;
+                
+                if (cell.state === 1) { // State 1: Wildfire
+                    color = 0xD84315;
+                    borderColor = 0xB71C1C;
+                } else if (cell.state === 2) { // State 2: Backburned
+                    color = 0x37474F;
+                    borderColor = 0x212121;
+                }
+                
+                // Target Safe Zone highlight (Column 14)
+                const isSafeZone = (cell.c === this.COLS - 1);
+                if (isSafeZone && cell.state === 0) {
+                    color = 0x0D47A1; // Deep Tactical Blue
+                    borderColor = 0x00E5FF;
+                }
+                
+                // Draw background rectangle
+                bg.fillStyle(color, 1);
+                bg.fillRoundedRect(3, 3, this.cellWidth - 6, this.cellHeight - 6, 6);
+                
+                // Border highlight on hover
+                if (hovered && this.isPlaying) {
+                    if (this.activeTool === 'deploy') {
+                        bg.lineStyle(2.5, 0x00E676, 1); // Green border for construction
+                    } else if (this.activeTool === 'backburn') {
+                        if (this.isTileInRFRange(cell.c, cell.r)) {
+                            bg.lineStyle(2.5, 0xD84315, 1); // Orange border for backburning
+                        } else {
+                            bg.lineStyle(2.5, 0xff5252, 1); // Red border (invalid)
+                        }
+                    } else {
+                        bg.lineStyle(2.5, 0x00E5FF, 1); // Cyan border for scan
+                    }
+                } else {
+                    bg.lineStyle(1.5, borderColor, 0.7);
+                }
+                bg.strokeRoundedRect(3, 3, this.cellWidth - 6, this.cellHeight - 6, 6);
+                
+                // Procedural tree graphics inside forest tiles
+                if (cell.state === 0 && !isSafeZone) {
+                    bg.fillStyle(0x1B5E20, 0.45);
+                    bg.beginPath();
+                    bg.moveTo(this.cellWidth / 2, 12);
+                    bg.lineTo(this.cellWidth / 2 - 14, this.cellHeight - 12);
+                    bg.lineTo(this.cellWidth / 2 + 14, this.cellHeight - 12);
+                    bg.closePath();
+                    bg.fillPath();
+                } else if (isSafeZone && cell.state === 0) {
+                    // Futuristic Shield indicators in the Safe Zone
+                    bg.fillStyle(0x00E5FF, 0.1);
+                    bg.fillRoundedRect(8, 8, this.cellWidth - 16, this.cellHeight - 16, 4);
+                    
+                    bg.lineStyle(1.5, 0x00E5FF, 0.4);
+                    bg.strokeRoundedRect(10, 10, this.cellWidth - 20, this.cellHeight - 20, 4);
+                }
+            }
+
+            igniteCellEmitter(cell) {
+                if (cell.emitter) return;
+                
+                cell.emitter = this.fireParticles.createEmitter({
+                    x: cell.x + this.cellWidth / 2,
+                    y: cell.y + this.cellHeight / 2,
+                    color: [ 0xffaa00, 0xff3300, 0xdd2200 ],
+                    lifespan: { min: 400, max: 700 },
+                    speedY: { min: -35, max: -15 },
+                    speedX: { min: -8, max: 8 },
+                    scale: { start: 0.7, end: 0.1 },
+                    quantity: 1,
+                    frequency: 80,
+                    blendMode: 'ADD'
+                });
+            }
+
+            smokeCellEmitter(cell) {
+                if (cell.smokeEmitter) return;
+                
+                cell.smokeEmitter = this.smokeParticles.createEmitter({
+                    x: cell.x + this.cellWidth / 2,
+                    y: cell.y + this.cellHeight / 2,
+                    color: [ 0x424242, 0x212121 ],
+                    lifespan: { min: 800, max: 1200 },
+                    speedY: { min: -20, max: -10 },
+                    speedX: { min: -5, max: 5 },
+                    scale: { start: 0.5, end: 0.1 },
+                    quantity: 1,
+                    frequency: 250,
+                    alpha: { start: 0.4, end: 0 }
+                });
+            }
+
+            isTileInRFRange(tx, ty) {
+                for (let node of this.rfNodes) {
+                    const dx = tx - node.c;
+                    const dy = ty - node.r;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq <= 3.1 * 3.1) { // R=3 tiles Euclidean check
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            redrawRFCircles() {
+                this.rfRangeGraphics.clear();
+                
+                this.rfNodes.forEach(node => {
+                    // Outer glow border
+                    this.rfRangeGraphics.lineStyle(1.5, 0x00E676, 0.35);
+                    this.rfRangeGraphics.strokeCircle(node.x, node.y, 3 * this.cellWidth);
+                    
+                    // Inner coverage tint
+                    this.rfRangeGraphics.fillStyle(0x00E676, 0.035);
+                    this.rfRangeGraphics.fillCircle(node.x, node.y, 3 * this.cellWidth);
+                });
+            }
+
+            triggerRFPulses() {
+                if (!this.isPlaying) return;
+                
+                this.rfNodes.forEach(node => {
+                    let pulse = this.add.image(node.x, node.y, 'ring');
+                    pulse.setTint(0x00E676);
+                    pulse.setScale(0.05);
+                    pulse.setAlpha(0.6);
+                    
+                    this.tweens.add({
+                        targets: pulse,
+                        scale: (3 * this.cellWidth * 2) / 64, // Scale to exact 3-tile radius
+                        alpha: 0,
+                        duration: 1600,
+                        ease: 'quad.out',
+                        onComplete: () => {
+                            pulse.destroy();
+                        }
+                    });
+                });
+            }
+
+            setTool(tool) {
+                this.activeTool = tool;
+                
+                // Clear active styling
+                document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+                
+                // Highlight select tool button
+                let activeBtn;
+                if (tool === 'radar') activeBtn = document.getElementById('tool-radar');
+                else if (tool === 'deploy') activeBtn = document.getElementById('tool-rf');
+                else if (tool === 'backburn') activeBtn = document.getElementById('tool-backburn');
+                
+                if (activeBtn) activeBtn.classList.add('active');
+            }
+
+            handlePointerDown(pointer) {
+                if (!this.isPlaying) return;
+
+                const c = Math.floor(pointer.x / this.cellWidth);
+                const r = Math.floor(pointer.y / this.cellHeight);
+                
+                if (c < 0 || c >= this.COLS || r < 0 || r >= this.ROWS) return;
+                
+                const cell = this.cellObjects[r][c];
+
+                if (this.activeTool === 'radar') {
+                    this.executeRadarScan(cell);
+                } else if (this.activeTool === 'deploy') {
+                    this.executeDeployRF(cell);
+                } else if (this.activeTool === 'backburn') {
+                    this.executeBackburn(cell);
+                }
+            }
+
+            handlePointerMove(pointer) {
+                // Visual feedback of mouse hover targets
+                this.uiInteractiveOverlay.clear();
+                
+                if (!this.isPlaying) return;
+
+                const c = Math.floor(pointer.x / this.cellWidth);
+                const r = Math.floor(pointer.y / this.cellHeight);
+                
+                // Reset all cells hover borders
+                for (let rIdx = 0; rIdx < this.ROWS; rIdx++) {
+                    for (let cIdx = 0; cIdx < this.COLS; cIdx++) {
+                        this.drawCell(this.cellObjects[rIdx][cIdx], false);
+                    }
+                }
+
+                if (c >= 0 && c < this.COLS && r >= 0 && r < this.ROWS) {
+                    const cell = this.cellObjects[r][c];
+                    
+                    // Highlight hovered cell outline
+                    this.drawCell(cell, true);
+                    
+                    // If Deploying RF Node, draw a temporary radius circle overlay
+                    if (this.activeTool === 'deploy' && cell.state === 0 && cell.c < this.COLS - 1) {
+                        const px = cell.x + this.cellWidth / 2;
+                        const py = cell.y + this.cellHeight / 2;
+                        
+                        this.uiInteractiveOverlay.lineStyle(1.5, 0x00E676, 0.5);
+                        this.uiInteractiveOverlay.strokeCircle(px, py, 3 * this.cellWidth);
+                        this.uiInteractiveOverlay.fillStyle(0x00E676, 0.05);
+                        this.uiInteractiveOverlay.fillCircle(px, py, 3 * this.cellWidth);
+                    }
+                }
+            }
+
+            executeRadarScan(cell) {
+                if (this.radarCooldown > 0) {
+                    audio.playError();
+                    this.addLog("Radar console processing data. Please wait.", "warning");
+                    return;
+                }
+                
+                audio.playPing();
+                
+                // Show localized scan sonar pulse
+                const px = cell.x + this.cellWidth / 2;
+                const py = cell.y + this.cellHeight / 2;
+                
+                let scanRing = this.add.image(px, py, 'ring');
+                scanRing.setTint(0x00E5FF);
+                scanRing.setScale(0.1);
+                scanRing.setAlpha(1);
+                
+                this.tweens.add({
+                    targets: scanRing,
+                    scale: 6,
+                    alpha: 0,
+                    duration: 800,
+                    ease: 'cubic.out',
+                    onComplete: () => { scanRing.destroy(); }
+                });
+                
+                // Scan feedback
+                this.nextWindScanned = true;
+                const nextDirEl = document.getElementById('wind-next-dir');
+                nextDirEl.innerText = this.nextWindDirection.toUpperCase();
+                nextDirEl.classList.remove('scanning');
+                
+                this.addLog(`Radar Scan activated at (${cell.c}, ${cell.r}). Next wind: ${this.nextWindDirection}`, "info");
+                
+                // Draw dynamic visual arrow pointing in the next wind direction
+                this.drawRadarArrow(px, py);
+
+                // Set radar cooldown
+                this.radarCooldown = 3.0;
+            }
+
+            drawRadarArrow(x, y) {
+                let arrowGraphics = this.add.graphics();
+                arrowGraphics.lineStyle(3, 0x00E5FF, 1);
+                arrowGraphics.fillStyle(0x00E5FF, 0.3);
+                
+                // Draw arrow shape pointing right
+                arrowGraphics.beginPath();
+                arrowGraphics.moveTo(-20, -8);
+                arrowGraphics.lineTo(10, -8);
+                arrowGraphics.lineTo(10, -16);
+                arrowGraphics.lineTo(30, 0);
+                arrowGraphics.lineTo(10, 16);
+                arrowGraphics.lineTo(10, 8);
+                arrowGraphics.lineTo(-20, 8);
+                arrowGraphics.closePath();
+                arrowGraphics.fillPath();
+                arrowGraphics.strokePath();
+                
+                arrowGraphics.x = x;
+                arrowGraphics.y = y;
+                
+                // Rotate based on wind direction
+                let angle = 0;
+                if (this.nextWindDirection === 'North') angle = 270;
+                else if (this.nextWindDirection === 'South') angle = 90;
+                else if (this.nextWindDirection === 'West') angle = 180;
+                
+                arrowGraphics.setAngle(angle);
+                arrowGraphics.setScale(0.1);
+                arrowGraphics.alpha = 0;
+                
+                // Pop arrow in, spin slightly, then fade out
+                this.tweens.add({
+                    targets: arrowGraphics,
+                    scale: 1,
+                    alpha: 1,
+                    duration: 300,
+                    ease: 'back.out'
+                });
+
+                this.tweens.add({
+                    targets: arrowGraphics,
+                    alpha: 0,
+                    delay: 2000,
+                    duration: 500,
+                    onComplete: () => { arrowGraphics.destroy(); }
+                });
+            }
+
+            executeDeployRF(cell) {
+                // Safeguards
+                if (this.rfCharges < 1) {
+                    audio.playError();
+                    this.addLog("Insufficient RF Node charges. Wait for recharge.", "danger");
+                    return;
+                }
+                
+                if (cell.state !== 0) {
+                    audio.playError();
+                    this.addLog("Towers can only be deployed on Active Forest tiles.", "danger");
+                    return;
+                }
+
+                if (cell.c === this.COLS - 1) {
+                    audio.playError();
+                    this.addLog("Cannot deploy infrastructure directly in Safe Zone.", "danger");
+                    return;
+                }
+
+                // Deduct charge
+                this.rfCharges--;
+                this.updateRFBadge();
+                
+                // Deploy tower node
+                const px = cell.x + this.cellWidth / 2;
+                const py = cell.y + this.cellHeight / 2;
+                
+                const nodeSprite = this.add.image(px, py, 'antenna');
+                nodeSprite.setScale(0.1);
+                
+                // Bounce entry animation
+                this.tweens.add({
+                    targets: nodeSprite,
+                    scale: 0.95,
+                    duration: 300,
+                    ease: 'back.out'
+                });
+                
+                // Save node reference
+                const node = {
+                    r: cell.r,
+                    c: cell.c,
+                    x: px,
+                    y: py,
+                    sprite: nodeSprite
+                };
+                
+                this.rfNodes.push(node);
+                cell.nodeSprite = nodeSprite;
+                
+                audio.playDeploy();
+                this.addLog(`RF Node deployed successfully at Grid (${cell.c}, ${cell.r}).`, "success");
+                
+                // Recalculate ranges & redraw
+                this.redrawRFCircles();
+            }
+
+            executeBackburn(cell) {
+                // Verify eligibility
+                if (cell.state !== 0) {
+                    audio.playError();
+                    this.addLog("Containment backburning is only applicable to Active Forest.", "danger");
+                    return;
+                }
+
+                if (cell.c === this.COLS - 1) {
+                    audio.playError();
+                    this.addLog("Backburn prohibited inside the Community Safe Zone.", "danger");
+                    return;
+                }
+
+                if (!this.isTileInRFRange(cell.c, cell.r)) {
+                    audio.playError();
+                    this.addLog("GRID OUT OF RANGE. Establish RF Node signal coverage first.", "danger");
+                    
+                    // Flash the target cell red briefly for UX feedback
+                    let flashRect = this.add.graphics();
+                    flashRect.fillStyle(0xff3d00, 0.4);
+                    flashRect.fillRoundedRect(cell.x + 3, cell.y + 3, this.cellWidth - 6, this.cellHeight - 6, 6);
+                    this.tweens.add({
+                        targets: flashRect,
+                        alpha: 0,
+                        duration: 400,
+                        onComplete: () => { flashRect.destroy(); }
+                    });
+                    return;
+                }
+
+                // Process Backburn
+                cell.state = 2; // Controlled burn zone
+                this.gridMatrix[cell.r][cell.c] = 2;
+                this.drawCell(cell);
+                
+                // Play sizzling sound and emit ash particles
+                audio.playBackburn();
+                this.smokeCellEmitter(cell);
+                
+                this.addLog(`Controlled backburn initialized at Grid (${cell.c}, ${cell.r}). Firebreak set.`, "info");
+            }
+
+            update(time, delta) {
+                if (!this.isPlaying) return;
+
+                const deltaSec = delta / 1000;
+                
+                // 1. Overall mission countdown
+                this.gameTimeLeft -= deltaSec;
+                if (this.gameTimeLeft <= 0) {
+                    this.gameTimeLeft = 0;
+                    this.triggerVictory();
+                }
+                document.getElementById('hud-timer').innerText = this.gameTimeLeft.toFixed(1) + 's';
+
+                // 2. Fire Spread Tick
+                this.fireSpreadTimer -= deltaSec;
+                if (this.fireSpreadTimer <= 0) {
+                    this.fireSpreadTimer = 2.5;
+                    this.spreadFire();
+                }
+                const spreadPercent = ((2.5 - this.fireSpreadTimer) / 2.5) * 100;
+                document.getElementById('spread-progress').style.width = spreadPercent + '%';
+
+                // 3. Wind Shift Tick
+                this.windShiftTimer -= deltaSec;
+                if (this.windShiftTimer <= 0) {
+                    this.windShiftTimer = 12.0;
+                    this.shiftWind();
+                }
+                document.getElementById('wind-shift-timer').innerText = this.windShiftTimer.toFixed(1) + 's';
+
+                // 4. RF Charge Recharge Tick
+                if (this.rfCharges < this.maxRFCharges) {
+                    this.rfRechargeTimer -= deltaSec;
+                    if (this.rfRechargeTimer <= 0) {
+                        this.rfCharges++;
+                        this.rfRechargeTimer = 15.0;
+                        this.updateRFBadge();
+                        this.addLog("Operational Alert: RF Node charge loaded.", "success");
+                    }
+                }
+                
+                // 5. Radar Cooldown Update
+                if (this.radarCooldown > 0) {
+                    this.radarCooldown -= deltaSec;
+                    if (this.radarCooldown < 0) this.radarCooldown = 0;
+                }
+
+                // 6. Live HUD Stats sync
+                this.syncHUDStats();
+            }
+
+            spreadFire() {
+                // Clone current state to execute sync step
+                const currentGrid = this.gridMatrix.map(row => [...row]);
+                let fireSpreadEvent = false;
+                let destroyedNodes = [];
+
+                for (let r = 0; r < this.ROWS; r++) {
+                    for (let c = 0; c < this.COLS; c++) {
+                        // Scan for active fires
+                        if (currentGrid[r][c] === 1) {
+                            const neighbors = [
+                                { r: r - 1, c: c, dir: 'North' },
+                                { r: r + 1, c: c, dir: 'South' },
+                                { r: r, c: c - 1, dir: 'West' },
+                                { r: r, c: c + 1, dir: 'East' }
+                            ];
+
+                            neighbors.forEach(n => {
+                                // Validate bounds
+                                if (n.r >= 0 && n.r < this.ROWS && n.c >= 0 && n.c < this.COLS) {
+                                    const cell = this.cellObjects[n.r][n.c];
+                                    
+                                    // Spreads to active forest (0) only
+                                    if (cell.state === 0) {
+                                        let prob = 0.15; // Base Spread Probability
+
+                                        if (n.dir === this.currentWindDirection) {
+                                            prob = 0.85; // Massive spread in wind path
+                                        } else if (this.isOppositeDirection(n.dir, this.currentWindDirection)) {
+                                            prob = 0.00; // Zero blowback spread
+                                        } else {
+                                            prob = 0.30; // Perpendicular drift spread
+                                        }
+
+                                        if (Math.random() < prob) {
+                                            this.gridMatrix[n.r][n.c] = 1;
+                                            cell.state = 1;
+                                            this.drawCell(cell);
+                                            this.igniteCellEmitter(cell);
+                                            fireSpreadEvent = true;
+
+                                            // If cell contained an RF Node, destroy it
+                                            if (cell.nodeSprite) {
+                                                destroyedNodes.push({ r: n.r, c: n.c, cell: cell });
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+
+                if (fireSpreadEvent) {
+                    audio.playSpread();
+                    // Screen shake visual effect on spread
+                    this.cameras.main.shake(120, 0.002);
+                }
+
+                // Process destroyed RF nodes
+                destroyedNodes.forEach(item => {
+                    item.cell.nodeSprite.destroy();
+                    item.cell.nodeSprite = null;
+                    
+                    // Remove node from RF arrays
+                    this.rfNodes = this.rfNodes.filter(n => !(n.r === item.r && n.c === item.c));
+                    
+                    // Stop any pulse rings
+                    this.redrawRFCircles();
+                    
+                    this.addLog(`CRITICAL: RF Node at (${item.c}, ${item.r}) was destroyed by wildfire!`, "danger");
+                });
+
+                // Check loss conditions (Fire touches right column)
+                for (let r = 0; r < this.ROWS; r++) {
+                    if (this.gridMatrix[r][this.COLS - 1] === 1) {
+                        this.triggerDefeat();
+                        return;
+                    }
+                }
+            }
+
+            isOppositeDirection(d1, d2) {
+                if (d1 === 'North' && d2 === 'South') return true;
+                if (d1 === 'South' && d2 === 'North') return true;
+                if (d1 === 'East' && d2 === 'West') return true;
+                if (d1 === 'West' && d2 === 'East') return true;
+                return false;
+            }
+
+            shiftWind() {
+                this.currentWindDirection = this.nextWindDirection;
+                
+                // Select a new random wind direction different from current
+                const dirs = ['North', 'South', 'East', 'West'].filter(d => d !== this.currentWindDirection);
+                this.nextWindDirection = dirs[Math.floor(Math.random() * dirs.length)];
+                
+                this.nextWindScanned = false;
+                
+                // Update interface elements
+                this.updateWindCompass();
+                this.addLog(`Telemetry Alert: Wind shifted. Now blowing ${this.currentWindDirection.toUpperCase()}.`, "warning");
+                
+                // Reset HUD next wind indicator
+                const nextDirEl = document.getElementById('wind-next-dir');
+                nextDirEl.innerText = "SCAN REQUIRED";
+                nextDirEl.classList.add('scanning');
+            }
+
+            updateWindCompass() {
+                const arrow = document.getElementById('compass-arrow');
+                let rotation = 0;
+                
+                if (this.currentWindDirection === 'East') rotation = 0;
+                else if (this.currentWindDirection === 'South') rotation = 90;
+                else if (this.currentWindDirection === 'West') rotation = 180;
+                else if (this.currentWindDirection === 'North') rotation = 270;
+                
+                arrow.style.transform = `rotate(${rotation}deg)`;
+                document.getElementById('wind-direction').innerText = this.currentWindDirection.toUpperCase();
+            }
+
+            syncHUDStats() {
+                // Calculate percentage of forest saved
+                let activeCount = 0;
+                let fireCount = 0;
+                
+                for (let r = 0; r < this.ROWS; r++) {
+                    for (let c = 0; c < this.COLS; c++) {
+                        if (this.gridMatrix[r][c] === 0) activeCount++;
+                        else if (this.gridMatrix[r][c] === 1) fireCount++;
+                    }
+                }
+                
+                const totalCells = this.ROWS * this.COLS;
+                const savedPercentage = Math.round((activeCount / totalCells) * 100);
+                
+                document.getElementById('hud-saved').innerText = savedPercentage + '%';
+                document.getElementById('hud-fires').innerText = fireCount;
+            }
+
+            updateRFBadge() {
+                document.getElementById('rf-badge').innerText = `${this.rfCharges} / ${this.maxRFCharges}`;
+            }
+
+            addLog(message, type = 'info') {
+                const container = document.getElementById('log-container');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                
+                const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                entry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+                
+                container.appendChild(entry);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            triggerVictory() {
+                this.isPlaying = false;
+                audio.playWin();
+                
+                // Calculate stats
+                let greenCount = 0;
+                for (let r = 0; r < this.ROWS; r++) {
+                    for (let c = 0; c < this.COLS; c++) {
+                        if (this.gridMatrix[r][c] === 0) greenCount++;
+                    }
+                }
+                const savedPercent = Math.round((greenCount / (this.ROWS * this.COLS)) * 100);
+                
+                document.getElementById('stat-win-saved').innerText = savedPercent + '%';
+                document.getElementById('stat-win-nodes').innerText = this.rfNodes.length;
+                
+                document.getElementById('screen-victory').classList.remove('hidden');
+                this.addLog("Operations cleared. Safe zone protected successfully. Containment crew has arrived.", "success");
+            }
+
+            triggerDefeat() {
+                this.isPlaying = false;
+                audio.playLoss();
+                
+                // Camera red flash
+                this.cameras.main.flash(600, 180, 0, 0);
+                
+                // Calculate stats
+                const survived = 90.0 - this.gameTimeLeft;
+                let fireCount = 0;
+                for (let r = 0; r < this.ROWS; r++) {
+                    for (let c = 0; c < this.COLS; c++) {
+                        if (this.gridMatrix[r][c] === 1) fireCount++;
+                    }
+                }
+                const burnedPercent = Math.round((fireCount / (this.ROWS * this.COLS)) * 100);
+                
+                document.getElementById('stat-loss-time').innerText = survived.toFixed(1) + 's';
+                document.getElementById('stat-loss-destroyed').innerText = burnedPercent + '%';
+                
+                document.getElementById('screen-defeat').classList.remove('hidden');
+                this.addLog("COMMUNITY SAFE ZONE BREACHED. Emergency evacuation ordered.", "danger");
+            }
+
+            startGame() {
+                this.isPlaying = true;
+                this.addLog("Console online. Forest Sentinel systems active.", "success");
+            }
+
+            restartGame() {
+                // Clear scene sprites
+                this.fireParticles.destroy();
+                this.smokeParticles.destroy();
+                this.rfRangeGraphics.clear();
+                
+                this.rfNodes.forEach(n => { if (n.sprite) n.sprite.destroy(); });
+                
+                // Reinitialize scene state
+                this.init();
+                
+                // Re-setup elements
+                this.fireParticles = this.add.particles(0, 0, 'particle');
+                this.smokeParticles = this.add.particles(0, 0, 'particle');
+                this.buildGrid();
+                this.updateWindCompass();
+                this.updateRFBadge();
+                
+                // Reset HUD next wind indicator
+                const nextDirEl = document.getElementById('wind-next-dir');
+                nextDirEl.innerText = "SCAN REQUIRED";
+                nextDirEl.classList.add('scanning');
+
+                // Clear overlays
+                document.getElementById('screen-defeat').classList.add('hidden');
+                document.getElementById('screen-victory').classList.add('hidden');
+                
+                // Clear log
+                const logContainer = document.getElementById('log-container');
+                logContainer.innerHTML = `<div class="log-entry success">Operations refreshed. Containment Grid reset.</div>`;
+                
+                this.startGame();
+            }
+        }
+
+        // PHASER INITIALIZATION CONFIG
+        const config = {
+            type: Phaser.AUTO,
+            width: 1280, // Virtual size
+            height: 720,
+            parent: 'phaser-game',
+            backgroundColor: '#050a12',
+            physics: {
+                default: 'arcade',
+                arcade: { debug: false }
+            },
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            },
+            scene: [GameScene]
+        };
+
+        const game = new Phaser.Game(config);
+
+        // WEB DOM INTERFACES & INPUTS BINDING
+        window.addEventListener('DOMContentLoaded', () => {
+            const startOverlay = document.getElementById('screen-start');
+            const startBtn = document.getElementById('btn-start');
+            const restartLossBtn = document.getElementById('btn-restart-loss');
+            const restartWinBtn = document.getElementById('btn-restart-win');
+            
+            // Audio toggle handler
+            const audioBtn = document.getElementById('btn-audio');
+            audioBtn.addEventListener('click', () => {
+                audio.toggleMute();
+            });
+
+            // Start mission callback
+            startBtn.addEventListener('click', () => {
+                audio.init();
+                audio.playPing();
+                
+                startOverlay.classList.add('hidden');
+                
+                // Delay starting the game slightly to allow UI transition
+                setTimeout(() => {
+                    const scene = game.scene.getScene('GameScene');
+                    if (scene) {
+                        scene.startGame();
+                    }
+                }, 400);
+            });
+
+            // Restart callbacks
+            const triggerRestart = () => {
+                audio.playPing();
+                const scene = game.scene.getScene('GameScene');
+                if (scene) {
+                    scene.restartGame();
+                }
+            };
+
+            restartLossBtn.addEventListener('click', triggerRestart);
+            restartWinBtn.addEventListener('click', triggerRestart);
+
+            // Tools Selection buttons
+            const tools = ['radar', 'deploy', 'backburn'];
+            tools.forEach(toolId => {
+                const btn = document.getElementById(`tool-${toolId}`);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        const scene = game.scene.getScene('GameScene');
+                        if (scene && scene.isPlaying) {
+                            audio.playPing();
+                            const toolType = btn.getAttribute('data-tool');
+                            scene.setTool(toolType);
+                        }
+                    });
+                }
+            });
+
+            // Keyboard Shortcuts
+            window.addEventListener('keydown', (e) => {
+                const scene = game.scene.getScene('GameScene');
+                if (!scene || !scene.isPlaying) return;
+
+                if (e.key === '1') {
+                    audio.playPing();
+                    scene.setTool('radar');
+                } else if (e.key === '2') {
+                    audio.playPing();
+                    scene.setTool('deploy');
+                } else if (e.key === '3') {
+                    audio.playPing();
+                    scene.setTool('backburn');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
