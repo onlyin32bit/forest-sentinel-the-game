@@ -21,17 +21,18 @@
             color: #e2e8f0;
         }
 
-        /* 75 / 25 Layout */
+        /* Portrait Layout */
         .app-container {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             width: 100vw;
             height: 100vh;
         }
 
         .map-section {
-            flex: 0 0 75%;
-            height: 100%;
+            flex: 0 0 70%;
+            height: 70%;
+            width: 100%;
             background: #000;
             display: flex;
             align-items: center;
@@ -48,15 +49,20 @@
         }
 
         .dashboard-section {
-            flex: 0 0 25%;
-            height: 100%;
+            flex: 0 0 30%;
+            height: 30%;
+            width: 100%;
             background: rgba(13, 20, 35, 0.95);
-            border-left: 2px solid rgba(0, 229, 255, 0.2);
-            padding: 15px;
+            border-top: 2px solid rgba(0, 229, 255, 0.2);
+            padding: 10px;
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            align-content: flex-start;
+            gap: 10px;
             z-index: 10;
+            overflow-y: auto;
         }
 
         /* Panels */
@@ -64,10 +70,12 @@
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(0, 229, 255, 0.1);
             border-radius: 8px;
-            padding: 15px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            flex: 1 1 30%;
+            min-width: 120px;
         }
 
         .panel-title {
@@ -144,35 +152,11 @@
             flex: 1;
         }
 
-        .tool-btn {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 8px;
-            padding: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: left;
-            position: relative;
-        }
-        .tool-btn:hover { background: rgba(255,255,255,0.05); }
-        .tool-btn.active {
-            background: rgba(0, 229, 255, 0.1);
-            border-color: #00E5FF;
-            box-shadow: 0 0 10px rgba(0,229,255,0.2) inset;
-        }
-
-        .tool-name { font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: bold; color: #fff; margin-bottom: 4px; }
-        .tool-desc { font-size: 9px; color: #94a3b8; line-height: 1.3; }
-
-        .tool-btn#tool-scan .tool-name { color: #00E5FF; }
-        .tool-btn#tool-deploy .tool-name { color: #00E676; }
-        .tool-btn#tool-burn .tool-name { color: #D84315; }
-
         .nodes-badge {
-            position: absolute; right: 10px; top: 10px;
             background: #00E676; color: #000;
-            font-size: 10px; font-weight: bold; font-family: 'Orbitron';
-            padding: 2px 6px; border-radius: 10px;
+            font-size: 14px; font-weight: bold; font-family: 'Orbitron';
+            padding: 4px 10px; border-radius: 10px;
+            display: inline-block;
         }
 
         /* Screens */
@@ -215,16 +199,14 @@
 
         /* Mobile specific adjustments to ensure everything fits */
         @media (max-width: 900px) {
-            .dashboard-section { padding: 10px; gap: 8px; }
-            .panel { padding: 10px; }
-            .timer-value { font-size: 24px; }
-            .compass-ring { width: 60px; height: 60px; }
-            .compass-arrow { border-bottom: 25px solid #D84315; }
-            .wind-ticker { font-size: 9px; min-height: 30px; }
-            .tool-btn { padding: 8px; }
-            .tool-name { font-size: 11px; }
-            .tool-desc { font-size: 8px; }
-            .nodes-badge { font-size: 8px; right: 5px; top: 5px; }
+            .dashboard-section { padding: 5px; gap: 5px; }
+            .panel { padding: 5px; min-width: 100px; }
+            .timer-value { font-size: 20px; }
+            .compass-ring { width: 40px; height: 40px; margin-bottom: 5px; border-width: 1px; }
+            .compass-arrow { border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 20px solid #D84315; }
+            .wind-ticker { font-size: 8px; min-height: 20px; padding: 4px; }
+            .nodes-badge { font-size: 10px; padding: 2px 6px; }
+            .panel-title { font-size: 9px; margin-bottom: 5px; }
         }
     </style>
 </head>
@@ -240,7 +222,7 @@
                 <div class="modal-card">
                     <h2 class="modal-title" style="color:#00E5FF">MISSION BRIEFING</h2>
                     <p style="font-size: 14px; margin-bottom: 20px; color: #94a3b8;">
-                        Protect the Gold Assets on the far right. Use tools to establish a firebreak before time runs out.
+                        Protect the Gold Assets at the top. Use tools to establish a firebreak before time runs out.
                     </p>
                     <button class="btn-action" id="btn-start">COMMENCE OPERATIONS</button>
                 </div>
@@ -272,28 +254,17 @@
                     <div class="compass-arrow" id="ui-compass"></div>
                 </div>
                 <div class="wind-ticker" id="ui-ticker">
-                    SYSTEM NOMINAL.<br>Wind: EAST
+                    SYSTEM NOMINAL.<br>Wind: NORTH
                 </div>
             </div>
 
             <div class="panel tools-container">
-                <div class="panel-title">ACTION MODES</div>
-                
-                <div class="tool-btn active" id="tool-scan" data-mode="1">
-                    <div class="tool-name">Forecast Scan</div>
-                    <div class="tool-desc">Analyst: Read next layout wind shift configuration.</div>
+                <div class="panel-title">TACTICAL COMMAND</div>
+                <div style="font-size: 12px; color: #94a3b8; text-align: center; margin-bottom: 10px;">
+                    Draw backburn line on the grid.
                 </div>
-
-                <div class="tool-btn" id="tool-deploy" data-mode="2">
-                    <div class="tool-name">Deploy Node</div>
-                    <div class="tool-desc">Engineer: Place comm node on Forest. (Radius: 2.5)</div>
-                    <div class="nodes-badge" id="ui-nodes">0 / 3</div>
-                </div>
-
-                <div class="tool-btn" id="tool-burn" data-mode="3">
-                    <div class="tool-name">Ignite Backburn</div>
-                    <div class="tool-desc">Commander: Convert Forest to Charcoal within node range.</div>
-                </div>
+                <div class="nodes-badge" id="ui-nodes" style="margin-bottom: 15px;">0 / 40</div>
+                <button class="btn-action" id="btn-initiate-backburn" style="margin-top: 0; width: 100%; font-size: 14px; padding: 10px;">INITIATE BACKBURN</button>
             </div>
         </aside>
     </div>
@@ -305,8 +276,8 @@
             }
 
             init() {
-                this.COLS = 15;
-                this.ROWS = 10;
+                this.COLS = 14;
+                this.ROWS = 24;
                 
                 this.cellWidth = 0;
                 this.cellHeight = 0;
@@ -315,14 +286,12 @@
                 this.rects = []; // Visual rectangles
                 
                 this.nodes = []; // Array of {r, c, x, y, visual}
-                this.maxNodes = 3;
-                
-                this.activeMode = 1; // 1=Scan, 2=Deploy, 3=Burn
+                this.maxNodes = 40;
                 
                 this.timeLeft = 90.0;
                 this.tickTimer = 2.0;
                 
-                this.windDir = 'East';
+                this.windDir = 'North';
                 this.nextWindDir = '';
                 
                 this.isPlaying = false;
@@ -353,16 +322,28 @@
                 
                 this.nodeLayer = this.add.container(0, 0);
 
-                this.input.on('pointerdown', this.handleTap, this);
+                this.input.on('pointerdown', this.handlePointer, this);
+                this.input.on('pointermove', (pointer) => {
+                    if (pointer.isDown) this.handlePointer(pointer);
+                }, this);
 
                 // Initial dashboard sync
                 this.updateCompassVisual();
                 document.getElementById('ui-nodes').innerText = `0 / ${this.maxNodes}`;
                 
                 // Bind tools UI
-                document.getElementById('tool-scan').onclick = () => this.setMode(1);
-                document.getElementById('tool-deploy').onclick = () => this.setMode(2);
-                document.getElementById('tool-burn').onclick = () => this.setMode(3);
+                document.getElementById('btn-initiate-backburn').onclick = () => {
+                    if (!this.isPlaying) return;
+                    for (let node of this.nodes) {
+                        if (this.grid[node.r][node.c] === 0) {
+                            this.grid[node.r][node.c] = 2; // Charcoal
+                        }
+                        node.visuals.forEach(v => v.destroy());
+                    }
+                    this.nodes = [];
+                    document.getElementById('ui-nodes').innerText = `0 / ${this.maxNodes}`;
+                    this.updateGridVisuals();
+                };
 
                 // Bind Start
                 document.getElementById('btn-start').onclick = () => {
@@ -381,8 +362,8 @@
                     const rowRects = [];
                     for (let c = 0; c < this.COLS; c++) {
                         let state = 0;
-                        if (c === this.COLS - 1) state = 3; // Column 14 is Defended Asset
-                        else if (c === 0 && (r === 4 || r === 5)) state = 1; // Start fire
+                        if (r === 0) state = 3; // Top row is Defended Asset
+                        else if (r === this.ROWS - 1 && (c === Math.floor(this.COLS/2) || c === Math.floor(this.COLS/2)-1)) state = 1; // Start fire at bottom
                         
                         rowStates.push(state);
                         
@@ -418,28 +399,7 @@
                 }
             }
 
-            setMode(mode) {
-                if (!this.isPlaying) return;
-                this.activeMode = mode;
-                
-                document.querySelectorAll('.tool-btn').forEach(el => el.classList.remove('active'));
-                
-                if (mode === 1) document.getElementById('tool-scan').classList.add('active');
-                if (mode === 2) document.getElementById('tool-deploy').classList.add('active');
-                if (mode === 3) document.getElementById('tool-burn').classList.add('active');
-
-                if (mode === 1 && this.nextWindScheduled) {
-                    this.showScanTicker();
-                } else if (mode === 1) {
-                    this.setTicker("SYSTEM NOMINAL.<br>No shifts detected.", false);
-                } else {
-                    if (!this.nextWindScheduled) {
-                        this.setTicker(`Wind: ${this.windDir.toUpperCase()}`, false);
-                    }
-                }
-            }
-
-            handleTap(pointer) {
+            handlePointer(pointer) {
                 if (!this.isPlaying) return;
 
                 const c = Math.floor((pointer.x - this.offsetX) / this.cellWidth);
@@ -448,49 +408,25 @@
                 if (c < 0 || c >= this.COLS || r < 0 || r >= this.ROWS) return;
 
                 const state = this.grid[r][c];
+                
+                // Only on active forest
+                if (state !== 0 || r === 0) return;
+                
+                // Check if node already exists here
+                if (this.nodes.some(n => n.r === r && n.c === c)) return;
 
-                if (this.activeMode === 2) {
-                    // Engineer Mode: Deploy Node
-                    if (state !== 0 || c === this.COLS - 1) return; // Only on active forest, not assets
-                    if (this.nodes.length >= this.maxNodes) return; // Max 3 nodes
+                if (this.nodes.length >= this.maxNodes) return; 
 
-                    const cx = this.offsetX + c * this.cellWidth + this.cellWidth/2;
-                    const cy = this.offsetY + r * this.cellHeight + this.cellHeight/2;
+                const cx = this.offsetX + c * this.cellWidth + this.cellWidth/2;
+                const cy = this.offsetY + r * this.cellHeight + this.cellHeight/2;
 
-                    // Visible radius = 2.5 tiles (approx 2.5 * cellWidth)
-                    const radius = 2.5 * this.cellWidth;
-                    
-                    let circle = this.add.circle(cx, cy, radius, 0x00E5FF, 0.2);
-                    circle.setStrokeStyle(2, 0x00E5FF);
-                    
-                    let center = this.add.circle(cx, cy, 4, 0x00E5FF);
-                    
-                    this.nodeLayer.add(circle);
-                    this.nodeLayer.add(center);
+                let marker = this.add.rectangle(cx, cy, this.cellWidth * 0.6, this.cellHeight * 0.6, 0x00E5FF, 0.5);
+                marker.setStrokeStyle(2, 0x00E5FF);
+                
+                this.nodeLayer.add(marker);
 
-                    this.nodes.push({ r, c, x: cx, y: cy, visuals: [circle, center] });
-                    document.getElementById('ui-nodes').innerText = `${this.nodes.length} / ${this.maxNodes}`;
-                } 
-                else if (this.activeMode === 3) {
-                    // Commander Mode: Backburn Ignition
-                    if (state !== 0) return; // Only on green forest
-                    
-                    // Check distance to closest node <= R
-                    let canBurn = false;
-                    for (let node of this.nodes) {
-                        // Euclidean distance in tile units
-                        let dist = Math.sqrt(Math.pow(c - node.c, 2) + Math.pow(r - node.r, 2));
-                        if (dist <= 2.5) {
-                            canBurn = true;
-                            break;
-                        }
-                    }
-
-                    if (canBurn) {
-                        this.grid[r][c] = 2; // Charcoal
-                        this.updateGridVisuals();
-                    }
-                }
+                this.nodes.push({ r, c, x: cx, y: cy, visuals: [marker] });
+                document.getElementById('ui-nodes').innerText = `${this.nodes.length} / ${this.maxNodes}`;
             }
 
             update(time, delta) {
@@ -541,12 +477,10 @@
 
             scheduleWindShift(timeTarget) {
                 this.nextWindScheduled = true;
-                const options = ['North', 'South'];
+                const options = ['East', 'West'];
                 this.nextWindDir = options[Math.floor(Math.random() * options.length)];
                 
-                if (this.activeMode === 1) {
-                    this.showScanTicker();
-                }
+                this.showScanTicker();
             }
 
             showScanTicker() {
@@ -636,12 +570,12 @@
                 let loss = false;
                 let assetRemaining = 0;
                 
-                for (let r = 0; r < this.ROWS; r++) {
-                    if (this.grid[r][this.COLS - 1] === 1) {
+                for (let c = 0; c < this.COLS; c++) {
+                    if (this.grid[0][c] === 1) {
                         loss = true;
                         break;
                     }
-                    if (this.grid[r][this.COLS - 1] === 3) {
+                    if (this.grid[0][c] === 3) {
                         assetRemaining++;
                     }
                 }
@@ -685,14 +619,13 @@
 
             startGame() {
                 this.isPlaying = true;
-                this.setMode(1);
             }
         }
 
         const config = {
             type: Phaser.AUTO,
-            width: 800, // Virtual resolution to be scaled
-            height: 600,
+            width: 600, // Virtual resolution to be scaled
+            height: 800,
             parent: 'phaser-game',
             transparent: true,
             scale: {
